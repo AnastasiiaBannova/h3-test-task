@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi import Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from loguru import logger
 
 from h3_test_task.api.dependencies import get_hex_dataset_service
-from h3_test_task.services.errors import InvalidHexIdxError, InvalidResolutionError, InvalidBorderError
+from h3_test_task.services.errors import InvalidBorderError, InvalidHexIdxError, InvalidResolutionError
 from h3_test_task.services.hex_dataset import HexDatasetService
 
 router = APIRouter()

@@ -10,7 +10,7 @@ from shapely.prepared import prep
 
 from h3_test_task.core.settings import settings
 from h3_test_task.models.hex import HexModel
-from h3_test_task.services.errors import InvalidHexIdxError, InvalidResolutionError, InvalidBorderError
+from h3_test_task.services.errors import InvalidBorderError, InvalidHexIdxError, InvalidResolutionError
 
 
 class HexDatasetService:
@@ -18,9 +18,9 @@ class HexDatasetService:
 
     def __init__(self):
         # Cache
-        self._parent_hex: dict[str, list[list[str, int, int]]] = {}  # key - parent hex
-        self._avg_by_resolution: dict[int, list[list[str, int, int]]] = {}  # key - resolution
-        self._bbox: dict[str, list[list[str, int, int]]] = {}  # key - raw border string
+        self._parent_hex: dict[str, list[list]] = {}  # key - parent hex
+        self._avg_by_resolution: dict[int, list[list]] = {}  # key - resolution
+        self._bbox: dict[str, list[list]] = {}  # key - raw border string
 
     @cached_property
     def _dataset(self) -> list[HexModel]:
@@ -49,7 +49,7 @@ class HexDatasetService:
     def _hex_idx(self) -> dict[str, HexModel]:
         return {hex_obj.h3_index: hex_obj for hex_obj in self._dataset}
 
-    def get_by_parent(self, parent_hex: str) -> list[list[str | int]]:
+    def get_by_parent(self, parent_hex: str) -> list[list]:
         if not h3.is_valid_cell(parent_hex):
             raise InvalidHexIdxError(f"'{parent_hex}' is not a valid hex index")
 
@@ -72,7 +72,7 @@ class HexDatasetService:
         self._parent_hex[parent_hex] = result
         return result
 
-    def get_avg_by_resolution(self, resolution: int) -> list[list[str | int]]:
+    def get_avg_by_resolution(self, resolution: int) -> list[list]:
         if not 0 <= resolution <= settings.hex_resolution:
             raise InvalidResolutionError(
                 f"Resolution must be in range from 0 to {settings.hex_resolution}, got {resolution}"
@@ -92,15 +92,12 @@ class HexDatasetService:
             )
             groups[(parent_hex, hex_obj.cell_id)].append(hex_obj.level)
 
-        result = [
-            [parent_hex, median(levels), cell_id]
-            for (parent_hex, cell_id), levels in groups.items()
-        ]
+        result = [[parent_hex, median(levels), cell_id] for (parent_hex, cell_id), levels in groups.items()]
 
         self._avg_by_resolution[resolution] = result
         return result
 
-    def get_by_bbox(self, border: str) -> list[list[str | int]]:
+    def get_by_bbox(self, border: str) -> list[list]:
         cached = self._bbox.get(border)
         if cached is not None:
             return cached
@@ -133,16 +130,14 @@ class HexDatasetService:
 
         return self._build_kml(records)
 
-    def _build_kml(self, records: list[list[str | int]]) -> bytes:
-        placemarks = "".join(
-            self._placemark_kml(h3_index, level, cell_id) for h3_index, level, cell_id in records
-        )
+    def _build_kml(self, records: list[list]) -> bytes:
+        placemarks = "".join(self._placemark_kml(h3_index, level, cell_id) for h3_index, level, cell_id in records)
 
         return (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             f'<kml xmlns="{self.KML_NAMESPACE}"><Document><name>H3 hexagons</name>'
             f"{placemarks}</Document></kml>"
-        ).encode("utf-8")
+        ).encode()
 
     def _placemark_kml(self, h3_index: str, level: int, cell_id: int) -> str:
         boundary = h3.cell_to_boundary(h3_index)
@@ -178,9 +173,7 @@ class HexDatasetService:
             points.append((lat, lon))
 
         if len(points) < 3:
-            raise InvalidBorderError(
-                f"Border must contain at least 3 points to form a polygon, got {len(points)}"
-            )
+            raise InvalidBorderError(f"Border must contain at least 3 points to form a polygon, got {len(points)}")
 
         return points
 

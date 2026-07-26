@@ -1,5 +1,3 @@
-from typing import Callable
-
 import fastapi
 from starlette.middleware.cors import CORSMiddleware
 
